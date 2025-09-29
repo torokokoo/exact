@@ -35,6 +35,9 @@ EXAMM* generate_examm_from_arguments(
     bool generate_visualization_json = false;
     get_argument(arguments, "--generate_visualization_json", false, generate_visualization_json);
 
+    int32_t genome_size_log;
+    get_argument(arguments, "--genome_size_log", false, genome_size_log);
+
 
     Log::info(
         "Setting up examm with %d islands, island size %d, and max_genome %d\n", number_islands, island_size,
@@ -68,7 +71,8 @@ EXAMM* generate_examm_from_arguments(
 
     EXAMM* examm = new EXAMM(
         island_size, number_islands, max_genomes, speciation_strategy, weight_rules, genome_property, output_directory,
-        save_genome_option, generate_op_log, generate_visualization_json, growth_phase_genomes, reduction_phase_genomes
+        save_genome_option, generate_op_log, generate_visualization_json, growth_phase_genomes, reduction_phase_genomes,
+        genome_size_log
     );
     if (possible_node_types.size() > 0) {
         examm->set_possible_node_types(possible_node_types);
@@ -132,11 +136,14 @@ IslandSpeciationStrategy* generate_island_speciation_strategy_from_arguments(
     bool start_filled = argument_exists(arguments, "--start_filled");
     bool tl_epigenetic_weights = argument_exists(arguments, "--tl_epigenetic_weights");
 
+    vector<string> possible_node_types;
+    get_argument_vector(arguments, "--possible_node_types", false, possible_node_types);
+
     IslandSpeciationStrategy* island_strategy = new IslandSpeciationStrategy(
         number_islands, island_size, mutation_rate, intra_island_co_rate, inter_island_co_rate, seed_genome,
         island_ranking_method, repopulation_method, extinction_event_generation_number, num_mutations,
         islands_to_exterminate, max_genomes, repeat_extinction, start_filled, transfer_learning,
-        transfer_learning_version, seed_stirs, tl_epigenetic_weights
+        transfer_learning_version, seed_stirs, tl_epigenetic_weights, possible_node_types
     );
 
     return island_strategy;
@@ -157,10 +164,12 @@ NeatSpeciationStrategy* generate_neat_speciation_strategy_from_arguments(
     double neat_c3 = 1;
     get_argument(arguments, "--neat_c3", false, neat_c3);
     double mutation_rate = 0.70, intra_island_co_rate = 0.20, inter_island_co_rate = 0.10;
+    vector<string> possible_node_types;
+    get_argument_vector(arguments, "--possible_node_types", false, possible_node_types);
 
     NeatSpeciationStrategy* neat_strategy = new NeatSpeciationStrategy(
         mutation_rate, intra_island_co_rate, inter_island_co_rate, seed_genome, species_threshold, fitness_threshold,
-        neat_c1, neat_c2, neat_c3
+        neat_c1, neat_c2, neat_c3, possible_node_types
     );
     return neat_strategy;
 }
