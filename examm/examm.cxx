@@ -45,16 +45,21 @@ using std::to_string;
 EXAMM::~EXAMM() {
     delete weight_rules;
     delete genome_property;
+    if (genome_stats_log_file != NULL) {
+        genome_stats_log_file->close();
+        delete genome_stats_log_file;
+    }
 }
 
 EXAMM::EXAMM(
-    int32_t _island_size, int32_t _number_islands, int32_t _max_genomes, SpeciationStrategy* _speciation_strategy,
+    int32_t _island_size, int32_t _number_islands, int32_t _max_genomes, int32_t _max_wallclock_seconds, SpeciationStrategy* _speciation_strategy,
     WeightRules* _weight_rules, GenomeProperty* _genome_property, string _output_directory, string _save_genome_option, bool _generate_op_log, bool _generate_visualization_json,
     int32_t _growth_phase_genomes, int32_t _reduction_phase_genomes, int32_t _genome_size_log
 )
     : island_size(_island_size),
       number_islands(_number_islands),
       max_genomes(_max_genomes),
+      max_wallclock_seconds(_max_wallclock_seconds),
       speciation_strategy(_speciation_strategy),
       weight_rules(_weight_rules),
       genome_property(_genome_property),
@@ -135,9 +140,15 @@ void EXAMM::generate_log() {
             }
             (*op_log_file) << endl;
         }
+        
+        // Create genome stats log file for per-genome backprop statistics
+        genome_stats_log_file = new ofstream(output_directory + "/" + "genome_stats_log.csv");
+        (*genome_stats_log_file) << "Genome Number, Initial Fitness, Final Fitness, BP Epochs, BP Time (ms)" << endl;
+        Log::info("Generating genome stats log\n");
     } else {
         log_file = NULL;
         op_log_file = NULL;
+        genome_stats_log_file = NULL;
     }
 }
 
@@ -285,7 +296,8 @@ bool EXAMM::insert_genome(RNN_Genome* genome) {
         return false;
     }
 
-    total_bp_epochs += genome->get_bp_iterations();
+    int backprop_iterations = genome->get_bp_iterations();
+    total_bp_epochs += backprop_iterations;
     if (!genome->sanity_check()) {
         Log::error("genome failed sanity check on insert!\n");
         exit(1);
@@ -321,6 +333,31 @@ bool EXAMM::insert_genome(RNN_Genome* genome) {
 
     update_op_log_statistics(genome, insert_position);
     Log::debug("update op log statistics complete\n");
+    
+    // Write per-genome backprop stats to log file
+    if (genome_stats_log_file != NULL) {
+        // Make sure the log file is still good (similar to update_log)
+        if (!genome_stats_log_file->good()) {
+            genome_stats_log_file->close();
+            delete genome_stats_log_file;
+            string output_file = output_directory + "/genome_stats_log.csv";
+            genome_stats_log_file = new ofstream(output_file, std::ios_base::app);
+            if (!genome_stats_log_file->is_open()) {
+                Log::error("could not open genome stats log: '%s'\n", output_file.c_str());
+                genome_stats_log_file = NULL;
+            }
+        }
+        
+        if (genome_stats_log_file != NULL && genome->get_bp_stats_valid()) {
+            (*genome_stats_log_file) << genome->get_generation_id() << ","
+                                     << genome->get_initial_fitness_before_bp() << ","
+                                     << genome->get_fitness() << ","
+                                     << genome->get_bp_iterations() << ","
+                                     << genome->get_bp_time_milliseconds() << endl;
+            genome_stats_log_file->flush();  // Ensure data is written immediately
+        }
+    }
+    
     update_log();
 
     // update size log.
@@ -433,15 +470,32 @@ void EXAMM::save_genome(RNN_Genome* genome, string genome_name = "rnn_genome") {
 }
 
 RNN_Genome* EXAMM::generate_genome() {
-    if (speciation_strategy->get_evaluated_genomes() > max_genomes) {
+    if ((max_genomes > 0 && speciation_strategy->get_evaluated_genomes() > max_genomes) || (max_wallclock_seconds > 0 && std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - startClock).count() >= max_wallclock_seconds)) {
         RNN_Genome* global_best_genome = speciation_strategy->get_global_best_genome();
         save_genome(global_best_genome, "global_best_genome");
 
         if (save_genome_option.compare("entire_population") == 0) {
             speciation_strategy->save_entire_population(output_directory);
         }
+        Log::info("max_genomes: %d", max_genomes);
+        Log::info("max_wallclock_seconds: %d", max_wallclock_seconds);
+        Log::info("elapsed_seconds: %d", std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - startClock).count());
+        // Log::info("max_genomes reached, terminating search");
         return NULL;
     }
+
+    // if (max_wallclock_seconds > 0) {
+    //     std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+    //     int64_t elapsed_seconds = std::chrono::duration_cast<std::chrono::seconds>(now - startClock).count();
+    //     if (elapsed_seconds >= max_wallclock_seconds) {
+    //         RNN_Genome* global_best_genome = speciation_strategy->get_global_best_genome();
+    //         save_genome(global_best_genome, "global_best_genome");
+    //         if (save_genome_option.compare("entire_population") == 0) {
+    //             speciation_strategy->save_entire_population(output_directory);
+    //         }
+    //         return NULL;
+    //     }
+    // }
 
     function<void(int32_t, RNN_Genome*)> mutate_function = [=, this](int32_t max_mutations, RNN_Genome* genome) {
         this->mutate(max_mutations, genome);
@@ -451,6 +505,40 @@ RNN_Genome* EXAMM::generate_genome() {
         [=, this](RNN_Genome* parent1, RNN_Genome* parent2) { return this->crossover(parent1, parent2); };
 
     RNN_Genome* genome = speciation_strategy->generate_genome(rng_0_1, generator, mutate_function, crossover_function);
+
+    int32_t backprop_iterations = genome_property->get_bp_iterations();
+    int32_t bp_min = genome_property->get_bp_min();
+    int32_t bp_max = genome_property->get_bp_max();
+    float slope = genome_property->get_bp_slope();
+    float exponent = genome_property->get_bp_exponent();
+    string type = genome_property->get_backprop_iterations_type();
+
+    int32_t generated_genomes = speciation_strategy->get_generated_genomes();
+
+    if (type == "scaled") {
+        backprop_iterations = floor(pow(slope * generated_genomes, exponent)) + bp_min;
+        // backprop_iterations = floor(slope * pow(double(generated_genomes), exponent)) + bp_min;
+    } else if (type == "rand") {
+        std::uniform_int_distribution<int32_t> dist(bp_min, bp_max);
+        backprop_iterations = dist(generator);
+        Log::info("Random int generator generated this number: %d, from range between: %d and %d\n", backprop_iterations, bp_min, bp_max);
+
+    // } else if (type == "acc") {
+        // backprop_iterations = floor((generated_genomes / double(slope)) + exponent) + bp_min;
+    } else if (type != "const") {
+        Log::fatal("Unknown bp_iterations_type specified: %s\n", type.c_str());
+        exit(1);
+    }
+
+    if (bp_max > 0 && backprop_iterations > bp_max) {
+        // if specified, make sure backprop iterations can't be higher than the
+        // specified maximum
+        backprop_iterations = bp_max;
+    }
+
+    Log::info("calculating backprop iterations using %s: bp_min: %d, bp_max: %d, generated_genomes: %d, slope: %f exponent: %f is iterations: %d\n", type.c_str(), bp_min, bp_max, generated_genomes, slope, exponent, backprop_iterations);
+
+    genome_property->set_bp_iterations(backprop_iterations);
 
     genome_property->set_genome_properties(genome);
     // if (!epigenetic_weights) genome->initialize_randomly();
@@ -470,6 +558,11 @@ RNN_Genome* EXAMM::generate_genome() {
 
         // Saving the genome to txt file
         genome->write_manual_txt(output_directory + "/" + "size_log"+ "/" + "generated_genome" + "_" + to_string(genome->get_generation_id()) + ".txt");
+    }
+
+    // Set stats output directory for genome stats files
+    if (output_directory != "") {
+        genome->set_stats_output_directory(output_directory);
     }
 
     return genome;
