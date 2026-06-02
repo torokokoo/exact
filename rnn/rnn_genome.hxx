@@ -85,7 +85,7 @@ class RNN_Genome {
     map<string, double> normalize_std_devs;
 
    public:
-    // Harada frequency-based parent selection 
+    // Harada frequency-based parent selection
     double search_frequency;
 
     void sort_nodes_by_depth();
@@ -159,11 +159,12 @@ class RNN_Genome {
     void set_stochastic(bool stochastic);
     void disable_dropout();
     void enable_dropout(double _dropout_probability);
-    
+
     // Getters for backprop stats (for logging)
     double get_initial_fitness_before_bp() const;
     long get_bp_time_milliseconds() const;
     bool get_bp_stats_valid() const;
+    void record_external_evaluation(double fitness, double score, long evaluation_time_milliseconds);
 
     void get_weights(vector<double>& parameters);
     void set_weights(const vector<double>& parameters);

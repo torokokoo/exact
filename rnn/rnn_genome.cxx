@@ -60,6 +60,7 @@ using std::map;
 #include "enas_dag_node.hxx"
 #include "generate_nn.hxx"
 #include "gru_node.hxx"
+#include "lif_node.hxx"
 #include "lstm_node.hxx"
 #include "mgu_node.hxx"
 #include "random_dag_node.hxx"
@@ -515,6 +516,18 @@ long RNN_Genome::get_bp_time_milliseconds() const {
 
 bool RNN_Genome::get_bp_stats_valid() const {
     return bp_stats_valid;
+}
+
+void RNN_Genome::record_external_evaluation(double fitness, double score, long evaluation_time_milliseconds) {
+    vector<double> parameters;
+    get_weights(parameters);
+    initial_fitness_before_bp = fitness;
+    best_validation_mse = fitness;
+    best_validation_mae = score;
+    best_parameters = parameters;
+    bp_iterations = 0;
+    bp_time_milliseconds = evaluation_time_milliseconds;
+    bp_stats_valid = true;
 }
 
 void RNN_Genome::get_weights(vector<double>& parameters) {
@@ -1255,10 +1268,11 @@ void RNN_Genome::backpropagate_stochastic(
                 best_parameters = parameters;
                 this->best_validation_mse = NAN;
                 this->best_validation_mae = NAN;
-                
+
                 // Store stats even for failed genomes (for logging)
                 std::chrono::time_point<std::chrono::system_clock> bp_end_time = std::chrono::system_clock::now();
-                bp_time_milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(bp_end_time - startClock).count();
+                bp_time_milliseconds =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(bp_end_time - startClock).count();
                 bp_stats_valid = true;
                 return;
             }
@@ -1268,7 +1282,7 @@ void RNN_Genome::backpropagate_stochastic(
             weight_update_method->update_weights(parameters, velocity, prev_velocity, analytic_gradient, iteration);
         }
         this->set_weights(parameters);
-        double training_mse = get_mse(parameters, inputs, outputs);
+        double training_mse = get_mse(parameters, inputs, outputs); // calcular recompensa
         validation_mse = get_mse(parameters, validation_inputs, validation_outputs);
 
         if (validation_mse < best_validation_mse) {
@@ -3359,7 +3373,10 @@ RNN_Node_Interface* RNN_Genome::read_node_from_stream(istream& bin_istream) {
         node = new MGU_Node(innovation_number, layer_type, depth);
     } else if (node_type == UGRNN_NODE) {
         node = new UGRNN_Node(innovation_number, layer_type, depth);
-    } else if (node_type == SIMPLE_NODE || node_type == JORDAN_NODE || node_type == ELMAN_NODE || node_type == OUTPUT_NODE_GP || node_type == INPUT_NODE_GP) {
+    } else if (
+        node_type == SIMPLE_NODE || node_type == JORDAN_NODE || node_type == ELMAN_NODE || node_type == OUTPUT_NODE_GP
+        || node_type == INPUT_NODE_GP
+    ) {
         if (layer_type == HIDDEN_LAYER) {
             node = new RNN_Node(innovation_number, layer_type, depth, node_type);
         } else {
@@ -3410,6 +3427,8 @@ RNN_Node_Interface* RNN_Genome::read_node_from_stream(istream& bin_istream) {
         node = new MULTIPLY_Node_GP(innovation_number, layer_type, depth);
     } else if (node_type == SUM_NODE_GP) {
         node = new SUM_Node_GP(innovation_number, layer_type, depth);
+    } else if (node_type == LIF_NODE) {
+        node = new LIF_Node(innovation_number, layer_type, depth);
     } else {
         Log::fatal("Error reading node from stream, unknown node_type: %d\n", node_type);
         exit(1);
@@ -4309,7 +4328,10 @@ void RNN_Genome::write_equations(ostream& outstream) {
                     current_output_equation += "tanh(" + input_equation;
                 } else if (output_node->node_type == SIGMOID_NODE || output_node->node_type == SIGMOID_NODE_GP) {
                     current_output_equation += "sigmoid(" + input_equation;
-                } else if (output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP || output_node->node_type == OUTPUT_NODE_GP) {
+                } else if (
+                    output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
+                    || output_node->node_type == OUTPUT_NODE_GP
+                ) {
                     current_output_equation += input_equation;
                 } else if (output_node->node_type == MULTIPLY_NODE || output_node->node_type == MULTIPLY_NODE_GP) {
                     current_output_equation += input_equation;
@@ -4333,12 +4355,16 @@ void RNN_Genome::write_equations(ostream& outstream) {
                     current_output_equation += "rdag(" + input_equation;
                 } else if (output_node->node_type == DNAS_NODE) {
                     current_output_equation += "dnas(" + input_equation;
+                } else if (output_node->node_type == LIF_NODE) {
+                    current_output_equation += "lif(" + input_equation;
                 } else {
                     Log::fatal("ERROR: output_node not correct type\n");
                     exit(1);
                 }
-            } else if (innovation_to_inputs_fired[output_node->innovation_number] > 1
-                       && innovation_to_inputs_fired[output_node->innovation_number] < output_node->total_inputs) {
+            } else if (
+                innovation_to_inputs_fired[output_node->innovation_number] > 1
+                && innovation_to_inputs_fired[output_node->innovation_number] < output_node->total_inputs
+            ) {
                 if (output_node->node_type == MULTIPLY_NODE || output_node->node_type == MULTIPLY_NODE_GP) {
                     current_output_equation += " * " + input_equation;
                 } else if (edges[i]->weight == 0.0) {
@@ -4352,8 +4378,10 @@ void RNN_Genome::write_equations(ostream& outstream) {
                         current_output_equation = to_string(0.0);
                     } else if (output_node->node_type == MULTIPLY_NODE_GP) {
                         current_output_equation = to_string(0.0);
-                    } else if (output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
-                               || output_node->node_type == OUTPUT_NODE_GP) {
+                    } else if (
+                        output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
+                        || output_node->node_type == OUTPUT_NODE_GP
+                    ) {
                         if (input_equation.compare("") != 0) {
                             current_output_equation += " + " + input_equation;
                         }
@@ -4367,8 +4395,10 @@ void RNN_Genome::write_equations(ostream& outstream) {
                     } else if (output_node->node_type == MULTIPLY_NODE_GP) {
                         current_output_equation +=
                             " * " + input_equation + " * " + to_string(round(output_bias * pow(10, 6)) / pow(10, 6));
-                    } else if (output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
-                               || output_node->node_type == OUTPUT_NODE_GP) {
+                    } else if (
+                        output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
+                        || output_node->node_type == OUTPUT_NODE_GP
+                    ) {
                         current_output_equation +=
                             " + " + input_equation + " + " + to_string(round(output_bias * pow(10, 6)) / pow(10, 6));
                     } else {
@@ -4425,7 +4455,10 @@ void RNN_Genome::write_equations(ostream& outstream) {
                     current_output_equation += "tanh(" + input_equation;
                 } else if (output_node->node_type == SIGMOID_NODE || output_node->node_type == SIGMOID_NODE_GP) {
                     current_output_equation += "sigmoid(" + input_equation;
-                } else if (output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP || output_node->node_type == OUTPUT_NODE_GP) {
+                } else if (
+                    output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
+                    || output_node->node_type == OUTPUT_NODE_GP
+                ) {
                     current_output_equation += input_equation;
                 } else if (output_node->node_type == MULTIPLY_NODE || output_node->node_type == MULTIPLY_NODE_GP) {
                     current_output_equation += input_equation;
@@ -4449,12 +4482,16 @@ void RNN_Genome::write_equations(ostream& outstream) {
                     current_output_equation += "rdag(" + input_equation;
                 } else if (output_node->node_type == DNAS_NODE) {
                     current_output_equation += "dnas(" + input_equation;
+                } else if (output_node->node_type == LIF_NODE) {
+                    current_output_equation += "lif(" + input_equation;
                 } else {
                     Log::fatal("ERROR: output_node not correct type");
                     exit(1);
                 }
-            } else if (innovation_to_inputs_fired[output_node->innovation_number] > 1
-                       && innovation_to_inputs_fired[output_node->innovation_number] < output_node->total_inputs) {
+            } else if (
+                innovation_to_inputs_fired[output_node->innovation_number] > 1
+                && innovation_to_inputs_fired[output_node->innovation_number] < output_node->total_inputs
+            ) {
                 if (output_node->node_type == MULTIPLY_NODE || output_node->node_type == MULTIPLY_NODE_GP) {
                     current_output_equation += " * " + input_equation;
                 } else if (recurrent_edges[i]->weight == 0.0) {
@@ -4468,8 +4505,10 @@ void RNN_Genome::write_equations(ostream& outstream) {
                         current_output_equation = to_string(0.0);
                     } else if (output_node->node_type == MULTIPLY_NODE_GP) {
                         current_output_equation = to_string(0.0);
-                    } else if (output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
-                               || output_node->node_type == OUTPUT_NODE_GP) {
+                    } else if (
+                        output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
+                        || output_node->node_type == OUTPUT_NODE_GP
+                    ) {
                         if (input_equation.compare("") != 0) {
                             current_output_equation += " + " + input_equation;
                         }
@@ -4483,8 +4522,10 @@ void RNN_Genome::write_equations(ostream& outstream) {
                     } else if (output_node->node_type == MULTIPLY_NODE_GP) {
                         current_output_equation +=
                             " * " + input_equation + " * " + to_string(round(output_bias * pow(10, 6)) / pow(10, 6));
-                    } else if (output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
-                               || output_node->node_type == OUTPUT_NODE_GP) {
+                    } else if (
+                        output_node->node_type == SUM_NODE || output_node->node_type == SUM_NODE_GP
+                        || output_node->node_type == OUTPUT_NODE_GP
+                    ) {
                         current_output_equation +=
                             " + " + input_equation + " + " + to_string(round(output_bias * pow(10, 6)) / pow(10, 6));
                     } else {
@@ -4577,21 +4618,27 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
     out_file << "  \"input_parameter_names\": [";
     for (size_t i = 0; i < input_parameter_names.size(); ++i) {
         out_file << "\"" << input_parameter_names[i] << "\"";
-        if (i != input_parameter_names.size() - 1) out_file << ", ";
+        if (i != input_parameter_names.size() - 1) {
+            out_file << ", ";
+        }
     }
     out_file << "]," << std::endl;
 
     out_file << "  \"output_parameter_names\": [";
     for (size_t i = 0; i < output_parameter_names.size(); ++i) {
         out_file << "\"" << output_parameter_names[i] << "\"";
-        if (i != output_parameter_names.size() - 1) out_file << ", ";
+        if (i != output_parameter_names.size() - 1) {
+            out_file << ", ";
+        }
     }
     out_file << "]," << std::endl;
 
     out_file << "  \"initial_parameters\": [";
     for (size_t i = 0; i < initial_parameters.size(); ++i) {
         out_file << initial_parameters[i];
-        if (i != initial_parameters.size() - 1) out_file << ", ";
+        if (i != initial_parameters.size() - 1) {
+            out_file << ", ";
+        }
     }
     out_file << "]," << std::endl;
 
@@ -4600,14 +4647,17 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
 
     out_file << "  \"weight_initialize\": \"" << weight_rules->get_weight_initialize_method() << "\"," << std::endl;
     out_file << "  \"weight_inheritance\": \"" << weight_rules->get_weight_inheritance_method() << "\"," << std::endl;
-    out_file << "  \"mutated_component_weight\": \"" << weight_rules->get_mutated_components_weight_method() << "\"," << std::endl;
+    out_file << "  \"mutated_component_weight\": \"" << weight_rules->get_mutated_components_weight_method() << "\","
+             << std::endl;
 
     // generated_by_map
     out_file << "  \"generated_by_map\": {" << std::endl;
     size_t count = 0;
     for (const auto& kv : generated_by_map) {
         out_file << "    \"" << kv.first << "\": \"" << kv.second << "\"";
-        if (++count < generated_by_map.size()) out_file << ",";
+        if (++count < generated_by_map.size()) {
+            out_file << ",";
+        }
         out_file << std::endl;
     }
     out_file << "  }," << std::endl;
@@ -4620,11 +4670,12 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
     for (size_t i = 0; i < nodes.size(); ++i) {
         auto* node = nodes[i];
         out_file << "    { \"innovation\": " << node->get_innovation_number()
-                 << ", \"layer_type\": " << node->get_layer_type()
-                 << ", \"type\": " << node->get_node_type()
-                 << ", \"depth\": " << node->get_depth()
-                 << ", \"enabled\": " << (node->is_enabled() ? "true" : "false") << " }";
-        if (i != nodes.size() - 1) out_file << ",";
+                 << ", \"layer_type\": " << node->get_layer_type() << ", \"type\": " << node->get_node_type()
+                 << ", \"depth\": " << node->get_depth() << ", \"enabled\": " << (node->is_enabled() ? "true" : "false")
+                 << " }";
+        if (i != nodes.size() - 1) {
+            out_file << ",";
+        }
         out_file << std::endl;
     }
     out_file << "  ]," << std::endl;
@@ -4637,7 +4688,9 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
                  << ", \"input_node\": " << edge->get_input_innovation_number()
                  << ", \"output_node\": " << edge->get_output_innovation_number()
                  << ", \"enabled\": " << (edge->is_enabled() ? "true" : "false") << " }";
-        if (i != edges.size() - 1) out_file << ",";
+        if (i != edges.size() - 1) {
+            out_file << ",";
+        }
         out_file << std::endl;
     }
     out_file << "  ]," << std::endl;
@@ -4650,7 +4703,9 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
                  << ", \"input_node\": " << edge->get_input_innovation_number()
                  << ", \"output_node\": " << edge->get_output_innovation_number()
                  << ", \"enabled\": " << (edge->is_enabled() ? "true" : "false") << " }";
-        if (i != recurrent_edges.size() - 1) out_file << ",";
+        if (i != recurrent_edges.size() - 1) {
+            out_file << ",";
+        }
         out_file << std::endl;
     }
     out_file << "  ]," << std::endl;
@@ -4659,7 +4714,9 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
     out_file << "  \"best_parameters\": [";
     for (size_t i = 0; i < best_parameters.size(); ++i) {
         out_file << best_parameters[i];
-        if (i != best_parameters.size() - 1) out_file << ", ";
+        if (i != best_parameters.size() - 1) {
+            out_file << ", ";
+        }
     }
     out_file << "]," << std::endl;
 
@@ -4687,13 +4744,16 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
     out_file << "    \"harada_frequnecy\": " << search_frequency << "," << std::endl;
     out_file << "    \"total_node_count\": " << get_node_count() << "," << std::endl;
     out_file << "    \"enabled_node_count\": " << get_enabled_node_count() << "," << std::endl;
-    out_file << "    \"enabled_hidden_layer_node_count\": " << get_enabled_node_count_hidden_layer() << "," << std::endl;
-    out_file << "    \"disabled_hidden_layer_node_count\": " << get_disabled_node_count_hidden_layer() << "," << std::endl;
+    out_file << "    \"enabled_hidden_layer_node_count\": " << get_enabled_node_count_hidden_layer() << ","
+             << std::endl;
+    out_file << "    \"disabled_hidden_layer_node_count\": " << get_disabled_node_count_hidden_layer() << ","
+             << std::endl;
     out_file << "    \"total_edge_count\": " << (int32_t) edges.size() << "," << std::endl;
     out_file << "    \"enabled_edge_count\": " << get_enabled_edge_count() << "," << std::endl;
     out_file << "    \"total_rec_edge_count\": " << (int32_t) recurrent_edges.size() << "," << std::endl;
     out_file << "    \"enabled_rec_edge_count\": " << get_enabled_recurrent_edge_count() << "," << std::endl;
-    out_file << "    \"total_number_hidden_layer_weights\": " << get_number_weights_enabled_hidden_layer_node() << "," << std::endl;
+    out_file << "    \"total_number_hidden_layer_weights\": " << get_number_weights_enabled_hidden_layer_node() << ","
+             << std::endl;
     out_file << "    \"best_validation_mse\": " << get_best_validation_mse() << "," << std::endl;
     out_file << "    \"best_validation_mae\": " << get_best_validation_mae() << "," << std::endl;
     out_file << "    \"total_number_outputs\": " << get_number_outputs() << "," << std::endl;
@@ -4705,13 +4765,15 @@ void RNN_Genome::write_manual_txt(const std::string& filename) {
     for (int32_t type = 0; type < NUMBER_NODE_TYPES; ++type) {
         std::string label = NODE_TYPES[type];
         out_file << "      \"" << label << "\": {"
-                 << "\"total\": " << get_node_count(type)
-                 << ", \"enabled\": " << get_all_enabled_node_count(type) << "}";
-        if (type < NUMBER_NODE_TYPES - 1) out_file << ",";
+                 << "\"total\": " << get_node_count(type) << ", \"enabled\": " << get_all_enabled_node_count(type)
+                 << "}";
+        if (type < NUMBER_NODE_TYPES - 1) {
+            out_file << ",";
+        }
         out_file << std::endl;
     }
     out_file << "    }" << std::endl;
-    out_file << "  }" << std::endl; // end of stats
+    out_file << "  }" << std::endl;  // end of stats
 
     out_file << "}" << std::endl;
     out_file.close();

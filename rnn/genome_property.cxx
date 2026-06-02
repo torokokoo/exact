@@ -25,8 +25,7 @@ void GenomeProperty::generate_genome_property_from_arguments(const vector<string
 
     if (backprop_iterations_type == "const") {
         get_argument(arguments, "--bp_iterations", true, bp_iterations);
-    }
-    else if (backprop_iterations_type == "rand") {
+    } else if (backprop_iterations_type == "rand") {
         bool bp_min_arg = get_argument(arguments, "--bp_min", false, bp_min);
         if (!bp_min_arg) {
             bp_min = 0;
@@ -35,12 +34,10 @@ void GenomeProperty::generate_genome_property_from_arguments(const vector<string
         bool bp_iter = get_argument(arguments, "--bp_iterations", false, bp_iterations);
         if (!bp_max_arg && !bp_iter) {
             get_argument(arguments, "--bp_max", true, bp_max);
-        }
-        else if (!bp_max_arg && bp_iter) {
+        } else if (!bp_max_arg && bp_iter) {
             bp_max = bp_iterations;
         }
-    }
-    else if (backprop_iterations_type == "scaled") {
+    } else if (backprop_iterations_type == "scaled") {
         bool bp_min_arg = get_argument(arguments, "--bp_min", false, bp_min);
         if (!bp_min_arg) {
             bp_min = 0;
@@ -48,18 +45,19 @@ void GenomeProperty::generate_genome_property_from_arguments(const vector<string
         bool bp_max_arg = get_argument(arguments, "--bp_max", false, bp_max);
         if (!bp_max_arg) {
             bp_max = -1;
-        }
-        else if (bp_min_arg && bp_max_arg && bp_min >= bp_max) {
+        } else if (bp_min_arg && bp_max_arg && bp_min >= bp_max) {
             Log::fatal("ERROR: bp_max (%d) has to be bigger than bp_min (%d)", bp_max, bp_min);
             exit(1);
         }
         get_argument(arguments, "--bp_exponent", true, bp_exponent);
         get_argument(arguments, "--bp_slope", true, bp_slope);
+    } else {
+        Log::fatal(
+            "ERROR: backprop_iterations_type is incorrectly identified. Use \"const\", \"exponentd\", \"random\", or "
+            "\"acc\"."
+        );
     }
-    else {
-        Log::fatal("ERROR: backprop_iterations_type is incorrectly identified. Use \"const\", \"exponentd\", \"random\", or \"acc\".");
-    }
-    
+
     use_dropout = get_argument(arguments, "--dropout_probability", false, dropout_probability);
 
     get_argument(arguments, "--min_recurrent_depth", false, min_recurrent_depth);
@@ -67,7 +65,10 @@ void GenomeProperty::generate_genome_property_from_arguments(const vector<string
 
     Log::info("Each generated genome is trained for %d epochs\n", bp_iterations);
 
-    Log::info("The parameters are following:\n slope: %f, exponent: %f, type: %s\n", bp_slope, bp_exponent, backprop_iterations_type.c_str());
+    Log::info(
+        "The parameters are following:\n slope: %f, exponent: %f, type: %s\n", bp_slope, bp_exponent,
+        backprop_iterations_type.c_str()
+    );
     Log::info(
         "Use dropout is set to %s, dropout probability is %f\n", use_dropout ? "True" : "False", dropout_probability
     );
@@ -94,6 +95,20 @@ void GenomeProperty::get_time_series_parameters(TimeSeriesSets* time_series_sets
     normalize_std_devs = time_series_sets->get_normalize_std_devs();
     number_inputs = time_series_sets->get_number_inputs();
     number_outputs = time_series_sets->get_number_outputs();
+}
+
+void GenomeProperty::set_parameter_names(
+    const vector<string>& _input_parameter_names, const vector<string>& _output_parameter_names
+) {
+    input_parameter_names = _input_parameter_names;
+    output_parameter_names = _output_parameter_names;
+    number_inputs = input_parameter_names.size();
+    number_outputs = output_parameter_names.size();
+    normalize_type = "";
+    normalize_mins.clear();
+    normalize_maxs.clear();
+    normalize_avgs.clear();
+    normalize_std_devs.clear();
 }
 
 uniform_int_distribution<int32_t> GenomeProperty::get_recurrent_depth_dist() {

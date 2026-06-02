@@ -67,6 +67,8 @@ RNN_Node_Interface* create_hidden_node(int32_t node_kind, int32_t& innovation_co
             return new MULTIPLY_Node_GP(++innovation_counter, HIDDEN_LAYER, depth);
         case SUM_NODE_GP:
             return new SUM_Node_GP(++innovation_counter, HIDDEN_LAYER, depth);
+        case LIF_NODE:
+            return new LIF_Node(++innovation_counter, HIDDEN_LAYER, depth);
         default:
             Log::fatal(
                 "If you are seeing this, an invalid node_kind was used to create a node (node_kind = %d\n", node_kind

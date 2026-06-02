@@ -19,6 +19,7 @@ using std::vector;
 #include "rnn/gru_node.hxx"
 #include "rnn/inverse_node.hxx"
 #include "rnn/inverse_node_gp.hxx"
+#include "rnn/lif_node.hxx"
 #include "rnn/lstm_node.hxx"
 #include "rnn/mgu_node.hxx"
 #include "rnn/multiply_node.hxx"
@@ -92,6 +93,7 @@ RNN_Genome* create_memory_cell_nn(
 #define create_enas_dag(...)   create_memory_cell_nn<ENAS_DAG_Node>(__VA_ARGS__)
 #define create_random_dag(...) create_memory_cell_nn<RANDOM_DAG_Node>(__VA_ARGS__)
 #define create_ugrnn(...)      create_memory_cell_nn<UGRNN_Node>(__VA_ARGS__)
+#define create_lif(...)        create_memory_cell_nn<LIF_Node>(__VA_ARGS__)
 
 // new simple nodes
 #define create_sin(...)      create_memory_cell_nn<SIN_Node>(__VA_ARGS__)

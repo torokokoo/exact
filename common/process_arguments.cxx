@@ -97,13 +97,11 @@ EXAMM* generate_examm_from_arguments(
     SpeciationStrategy* speciation_strategy = generate_speciation_strategy_from_arguments(arguments, seed_genome);
 
     EXAMM* examm = new EXAMM(
-        island_size, number_islands, max_genomes, max_wallclock_seconds, speciation_strategy, weight_rules, genome_property, output_directory,
-        save_genome_option, generate_op_log, generate_visualization_json, growth_phase_genomes, reduction_phase_genomes,
-        genome_size_log, is_harada_selection, harada_selection_ratio, is_sweet
+        island_size, number_islands, max_genomes, max_wallclock_seconds, speciation_strategy, weight_rules,
+        genome_property, output_directory, save_genome_option, generate_op_log, generate_visualization_json,
+        growth_phase_genomes, reduction_phase_genomes, genome_size_log, is_harada_selection, harada_selection_ratio,
+        is_sweet, possible_node_types
     );
-    if (possible_node_types.size() > 0) {
-        examm->set_possible_node_types(possible_node_types);
-    }
 
     return examm;
 }

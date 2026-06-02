@@ -82,4 +82,9 @@ target_link_libraries(test_inverse_gp_gradients examm_strategy exact_common exac
 add_executable(test_multiply_gp_gradients test_multiply_gp_gradients.cxx gradient_test.cxx)
 target_link_libraries(test_multiply_gp_gradients examm_strategy exact_common exact_time_series exact_weights examm_nn  ${MYSQL_LIBRARIES} pthread)
 
+add_executable(test_lif_gradients test_lif_gradients.cxx gradient_test.cxx)
+target_link_libraries(test_lif_gradients examm_strategy exact_common exact_time_series exact_weights examm_nn ${MYSQL_LIBRARIES} pthread)
+
+add_executable(test_lif_node test_lif_node.cxx)
+target_link_libraries(test_lif_node examm_strategy exact_common exact_time_series exact_weights examm_nn ${MYSQL_LIBRARIES} pthread)
 

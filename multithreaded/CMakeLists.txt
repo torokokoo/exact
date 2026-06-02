@@ -6,3 +6,6 @@ target_link_libraries(examm_mt_single_series examm_strategy exact_time_series ex
 
 add_executable(examm_mt examm_mt.cxx)
 target_link_libraries(examm_mt examm_strategy exact_time_series exact_common exact_weights examm_nn pthread)
+
+add_executable(snn_rl_mt snn_rl_mt.cxx cartpole_env.cxx)
+target_link_libraries(snn_rl_mt examm_strategy exact_time_series exact_common exact_weights examm_nn pthread)

@@ -16,7 +16,7 @@ extern const string NODE_TYPES[] = {"simple",      "jordan",    "elman",  "UGRNN
                                     "delta",       "LSTM",      "ENARC",  "ENAS_DAG", "rdag",       "dnas",
                                     "sin",         "sum",       "cos",    "tanh",     "sigmoid",    "inverse",
                                     "multiply",    "sin_gp",    "cos_gp", "tanh_gp",  "sigmoid_gp", "inverse_gp",
-                                    "multiply_gp", "output_gp", "sum_gp", "input_gp"};
+                                    "multiply_gp", "output_gp", "sum_gp", "input_gp", "lif"};
 extern const unordered_map<string, int32_t> string_to_node_type = {
     {     "simple",      SIMPLE_NODE},
     {     "jordan",      JORDAN_NODE},
@@ -46,6 +46,7 @@ extern const unordered_map<string, int32_t> string_to_node_type = {
     {  "output_gp",   OUTPUT_NODE_GP},
     {     "sum_gp",      SUM_NODE_GP},
     {   "input_gp",    INPUT_NODE_GP},
+    {        "lif",         LIF_NODE},
 };
 
 extern const int32_t NUMBER_NODE_TYPES = string_to_node_type.size();
