@@ -1,5 +1,6 @@
 connect_db.sh
-build/*
+build/
+build_*/
 .DS_Store
 copy_binary_windows.sh
 copy_binary_linux.sh
@@ -9,5 +10,15 @@ run.sh
 __pycache__/*
 *.pyc
 visualization/plots/*
-test_output/*
+test_output/
+outputs/
 new_files/*
+
+# Run artifacts belong under ignored output directories.
+rl_fitness_log.csv
+fitness_log.csv
+genome_stats_log.csv
+best_episode_trace.csv
+completed
+global_best_genome_*
+rnn_genome_*
