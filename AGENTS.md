@@ -64,6 +64,22 @@ find . -path ./build -prune -o \( -name "*.cxx" -o -name "*.hxx" -o -name "*.h" 
 
 From `.github/pull_request_template.md`: test on macOS **and** Ubuntu, generate no new warnings, include a run script for any new feature.
 
+## Session Logging Protocol
+
+This thesis project keeps a development ledger in `docs/session_logs/`. When a Codex coding session reaches a completed goal, a major implementation/design turning point, or the end of a long work session, add a milestone entry with:
+
+```bash
+python3 scripts/session_log.py add --trigger milestone \
+  --title "<short checkpoint title>" \
+  --goal "<goal or checkpoint reached>" \
+  --change "<notable implementation or documentation change>" \
+  --decision "<decision and rationale>" \
+  --test "<command or verification result>" \
+  --next "<recommended next action>"
+```
+
+If the user asks to "log this session so far", create a manual entry with `--trigger manual`. If milestone logging was missed during the day, run `python3 scripts/session_log.py daily --date today` before stopping. The log should capture human-readable reasoning and verification notes; exact code reconstruction should rely on Git history rather than full patch snapshots.
+
 ## Architecture
 
 Libraries are built first and linked by executables:
