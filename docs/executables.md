@@ -63,6 +63,14 @@ for each time series i (as validation):
 
 ---
 
+### `snn_rl_mt` — SNN-EXAMM for RL
+
+Evolves LIF-based SNN policies with island evolution and Lamarckian weight inheritance. Genome evaluation is external RL reward instead of time-series BPTT; reward is stored as `fitness = -average_reward` so existing EXAMM lower-is-better selection remains unchanged.
+
+The Week 7 supported prototype is CartPole. Pendulum and SPSA local search are experimental extensions. Use `rl_fitness_log.csv` as the official RL log; `fitness_log.csv` is still emitted by EXAMM for compatibility but should not be used as the RL analysis source. See [`docs/rl_tools_snn.md`](rl_tools_snn.md) for the rl-tools integration details, command-line options, output files, and the Pendulum SAC baseline.
+
+---
+
 ## MPI (`mpi/`)
 
 ### `examm_mpi` — Distributed Master-Worker
