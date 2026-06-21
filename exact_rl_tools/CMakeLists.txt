@@ -1,0 +1,10 @@
+add_library(exact_rl_tools rl_environment.cxx rl_evaluator.cxx rl_local_search.cxx)
+target_link_libraries(exact_rl_tools examm_nn exact_common RLtools::RLtools)
+target_compile_options(exact_rl_tools PRIVATE -Wno-unused-local-typedef -Wno-unused-variable)
+
+add_executable(test_rl_tools_environments test_rl_tools_environments.cxx)
+target_link_libraries(test_rl_tools_environments exact_rl_tools examm_nn exact_common exact_weights pthread)
+
+add_executable(rl_tools_pendulum_sac_baseline rl_tools_pendulum_sac_baseline.cxx)
+target_link_libraries(rl_tools_pendulum_sac_baseline RLtools::RLtools pthread)
+target_compile_options(rl_tools_pendulum_sac_baseline PRIVATE -Wno-unused-local-typedef -Wno-unused-variable)

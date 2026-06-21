@@ -206,8 +206,9 @@ RNN::RNN(
     edges = _edges;
     recurrent_edges = _recurrent_edges;
 
-    // sort nodes by depth
-    // sort edges by depth
+    sort(edges.begin(), edges.end(), sort_RNN_Edges_by_depth());
+    sort(recurrent_edges.begin(), recurrent_edges.end(), sort_RNN_Recurrent_Edges_by_depth());
+
     Log::debug("creating rnn with %d nodes, %d edges\n", nodes.size(), edges.size());
 
     for (int32_t i = 0; i < (int32_t) nodes.size(); i++) {

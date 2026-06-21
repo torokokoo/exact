@@ -10,6 +10,7 @@ set (EXACT_VERSION_MINOR 33)
 SET (PLATFORM 64)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+option(EXACT_ENABLE_ASAN "Build EXACT with AddressSanitizer" ON)
 
 #SET (CMAKE_CXX_FLAGS                "-std=c++11 -Wall -O3 -funroll-loops -msse3 -stdlib=libstdc++")
 #SET (CMAKE_CXX_FLAGS                "-std=c++11 -Wall -O3 -funroll-loops -msse3 -fsanitize=address -DNAN_CHECKS")
@@ -26,7 +27,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 2 This line for cluster
 #SET (CMAKE_CXX_FLAGS                "-std=gnu++17 -Wall -O3 -funroll-loops  -msse3 -fno-omit-frame-pointer -D_GLIBCXX_DEBUG")
 
-SET (CMAKE_CXX_FLAGS                " -Wall -O3 -funroll-loops -ggdb3 -fsanitize=address")
+IF (EXACT_ENABLE_ASAN)
+    SET (CMAKE_CXX_FLAGS                " -Wall -O3 -funroll-loops -ggdb3 -fsanitize=address")
+ELSE (EXACT_ENABLE_ASAN)
+    SET (CMAKE_CXX_FLAGS                " -Wall -O3 -funroll-loops -ggdb3")
+ENDIF (EXACT_ENABLE_ASAN)
 #SET (CMAKE_CXX_FLAGS                " -Wall -O3 -funroll-loops -msse3 -ggdb3 -fsanitize=address")
 #SET (CMAKE_CXX_FLAGS                " -Wall -O1 -funroll-loops -msse3 -g -fsanitize=address -fno-omit-frame-pointer -shared-libasan -DGLIBCXX_DEBUG")
 #SET (CMAKE_CXX_FLAGS_DEBUG          "${CMAKE_CXX_FLAGS} -g")
@@ -117,6 +122,23 @@ add_subdirectory(rnn_examples)
 
 add_subdirectory(weights)
 add_subdirectory(examm)
+
+set(RL_TOOLS_DIR "${PROJECT_SOURCE_DIR}/external/rl_tools")
+if(NOT EXISTS "${RL_TOOLS_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR
+        "Missing external/rl_tools submodule. Run: git submodule update --init --recursive external/rl_tools"
+    )
+endif()
+
+set(RL_TOOLS_ENABLE_TARGETS OFF CACHE BOOL "" FORCE)
+set(RL_TOOLS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+set(RL_TOOLS_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+set(RL_TOOLS_DISABLE_JSON ON CACHE BOOL "" FORCE)
+set(RL_TOOLS_DISABLE_HDF5 ON CACHE BOOL "" FORCE)
+set(RL_TOOLS_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+set(RL_TOOLS_DISABLE_CLI11 ON CACHE BOOL "" FORCE)
+add_subdirectory("${RL_TOOLS_DIR}")
+add_subdirectory(exact_rl_tools)
 
 # add_subdirectory(cnn_tests)
 # add_subdirectory(cnn_examples)
