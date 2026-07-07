@@ -61,7 +61,7 @@ RNN_Genome* create_rl_seed_genome(const RLEnvironmentSpec& spec, int32_t hidden_
 
 std::vector<double> decode_rl_action(
     RNN* rnn, const std::vector<double>& observation, int32_t number_outputs, const RLEvaluationOptions& options,
-    std::vector<double>* raw_outputs
+    std::vector<double>* raw_outputs, std::vector<RNNNodeTraceRow>* neuron_trace, int32_t env_step
 ) {
     vector<vector<double> > inputs(observation.size(), vector<double>(options.t_sim, 0.0));
     for (int32_t i = 0; i < (int32_t) observation.size(); i++) {
@@ -75,6 +75,10 @@ std::vector<double> decode_rl_action(
     vector<vector<double> > expected_outputs(number_outputs, vector<double>(options.t_sim, 0.0));
     vector<double> predictions = rnn->get_predictions(inputs, expected_outputs, false, 0.0);
     vector<double> action_scores(number_outputs, 0.0);
+
+    if (neuron_trace != nullptr) {
+        rnn->get_lif_node_traces(env_step, *neuron_trace);
+    }
 
     for (int32_t t = 0; t < options.t_sim; t++) {
         for (int32_t action = 0; action < number_outputs; action++) {
@@ -146,6 +150,12 @@ RLEvaluation evaluate_rl_genome(RNN_Genome* genome, const RLEvaluationOptions& o
 }
 
 std::vector<RLTraceRow> trace_rl_episode(RNN_Genome* genome, const RLEvaluationOptions& options) {
+    return trace_rl_episode(genome, options, nullptr);
+}
+
+std::vector<RLTraceRow> trace_rl_episode(
+    RNN_Genome* genome, const RLEvaluationOptions& options, std::vector<RNNNodeTraceRow>* neuron_trace
+) {
     RNN* rnn = genome->get_rnn();
     int32_t number_outputs = genome->get_number_outputs();
     int32_t max_steps = options.max_steps;
@@ -159,7 +169,8 @@ std::vector<RLTraceRow> trace_rl_episode(RNN_Genome* genome, const RLEvaluationO
 
     for (int32_t step = 0; step < max_steps; step++) {
         vector<double> raw_outputs;
-        vector<double> action = decode_rl_action(rnn, observation, number_outputs, options, &raw_outputs);
+        vector<double> action =
+            decode_rl_action(rnn, observation, number_outputs, options, &raw_outputs, neuron_trace, step);
         RLStepResult result = env->step(action);
         trace.push_back({step, observation, raw_outputs, action, result.reward, result.terminated});
         observation = result.observation;

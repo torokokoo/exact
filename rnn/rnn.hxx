@@ -13,6 +13,18 @@ using std::vector;
 #include "time_series/time_series.hxx"
 // #include "word_series/word_series.hxx"
 
+struct RNNNodeTraceRow {
+    int32_t env_step;
+    int32_t sim_step;
+    int32_t node_innovation;
+    int32_t node_type;
+    int32_t layer_type;
+    double input_current;
+    double membrane_potential;
+    double spike_output;
+    double output_value;
+};
+
 class RNN {
    private:
     int32_t series_length;
@@ -68,6 +80,7 @@ class RNN {
         const vector<vector<double> >& series_data, const vector<vector<double> >& expected_outputs, bool usng_dropout,
         double dropout_probability
     );
+    void get_lif_node_traces(int32_t env_step, vector<RNNNodeTraceRow>& trace_rows) const;
 
     void write_predictions(
         string output_filename, const vector<string>& input_parameter_names,

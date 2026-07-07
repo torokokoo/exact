@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <fstream>
 #include <mutex>
@@ -40,6 +41,7 @@ int32_t number_threads = 1;
 int32_t evaluated_genomes = 0;
 int32_t rl_seed_hidden_nodes = 4;
 bool rl_write_trace = true;
+bool rl_write_neuron_trace = true;
 double global_best_reward = -1.0e300;
 
 void write_rl_log_header() {
@@ -156,10 +158,45 @@ void write_best_episode_trace(RNN_Genome* genome) {
     }
 }
 
+void write_best_neuron_trace(RNN_Genome* genome) {
+    if (genome == NULL) {
+        return;
+    }
+
+    vector<RNNNodeTraceRow> rows;
+    trace_rl_episode(genome, rl_options, &rows);
+
+    ofstream trace(output_directory + "/best_neuron_trace.csv");
+    trace << "env_step,sim_step,node_innovation,node_type,layer_type,input_current,membrane_potential,spike_output,"
+             "output_value\n";
+    for (const auto& row : rows) {
+        trace << row.env_step << "," << row.sim_step << "," << row.node_innovation << "," << NODE_TYPES[row.node_type]
+              << "," << row.layer_type << "," << row.input_current << "," << row.membrane_potential << ","
+              << row.spike_output << "," << row.output_value << "\n";
+    }
+}
+
 void append_argument_if_missing(const string& argument, const string& value) {
     if (!argument_exists(arguments, argument)) {
         arguments.push_back(argument);
         arguments.push_back(value);
+    }
+}
+
+void get_bool_argument(const string& argument, bool& result) {
+    string value;
+    if (!get_argument(arguments, argument, false, value)) {
+        return;
+    }
+
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return std::tolower(c); });
+    if (value == "true" || value == "1" || value == "yes") {
+        result = true;
+    } else if (value == "false" || value == "0" || value == "no") {
+        result = false;
+    } else {
+        Log::fatal("%s must be true/false, 1/0, or yes/no.\n", argument.c_str());
+        exit(1);
     }
 }
 
@@ -181,7 +218,8 @@ int main(int argc, char** argv) {
     get_argument(arguments, "--rl_t_sim", false, rl_options.t_sim);
     get_argument(arguments, "--rl_max_steps", false, rl_options.max_steps);
     get_argument(arguments, "--rl_seed", false, rl_options.seed);
-    get_argument(arguments, "--rl_write_trace", false, rl_write_trace);
+    get_bool_argument("--rl_write_trace", rl_write_trace);
+    get_bool_argument("--rl_write_neuron_trace", rl_write_neuron_trace);
     get_argument(arguments, "--rl_seed_hidden_nodes", false, rl_seed_hidden_nodes);
     get_argument(arguments, "--rl_observation_clip", false, rl_options.observation_clip);
     string local_search_method;
@@ -286,6 +324,9 @@ int main(int argc, char** argv) {
 
     if (rl_write_trace) {
         write_best_episode_trace(examm->get_best_genome());
+    }
+    if (rl_write_neuron_trace) {
+        write_best_neuron_trace(examm->get_best_genome());
     }
 
     ofstream completed(output_directory + "/completed");

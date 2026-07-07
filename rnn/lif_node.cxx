@@ -170,6 +170,14 @@ int32_t LIF_Node::get_number_weights() const {
     return NUMBER_LIF_WEIGHTS;
 }
 
+double LIF_Node::get_membrane_potential(int32_t time) const {
+    return membrane_potential[time];
+}
+
+double LIF_Node::get_spike_output(int32_t time) const {
+    return spike_output[time];
+}
+
 void LIF_Node::get_weights(vector<double>& parameters) const {
     parameters.resize(get_number_weights());
     int32_t offset = 0;

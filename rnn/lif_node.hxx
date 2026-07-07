@@ -51,6 +51,9 @@ class LIF_Node : public RNN_Node_Interface {
 
     int32_t get_number_weights() const;
 
+    double get_membrane_potential(int32_t time) const;
+    double get_spike_output(int32_t time) const;
+
     void get_weights(vector<double>& parameters) const;
     void set_weights(const vector<double>& parameters);
 

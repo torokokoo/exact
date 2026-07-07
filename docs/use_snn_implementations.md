@@ -140,6 +140,7 @@ Useful RL flags:
 - `--rl_action_decoder`: `discrete_argmax` or `continuous_tanh`; default depends on environment.
 - `--rl_observation_clip`: clips observations before current injection.
 - `--rl_write_trace`: writes `best_episode_trace.csv` by default.
+- `--rl_write_neuron_trace`: writes `best_neuron_trace.csv` by default for LIF current/membrane/spike analysis.
 
 ## 3. Experimental Derivative-Free Local Search: Perturb and SPSA
 
@@ -195,6 +196,7 @@ Start with small values. Local search multiplies environment evaluations per gen
 - `rl_fitness_log.csv`: official RL log for reward, translated fitness, environment, decoder, genome size, LIF count, recurrent count, evaluation time, and local-search statistics.
 - `fitness_log.csv`: compatibility log emitted by EXAMM internals. It is useful for confirming insertion counts, but it should not be used as the RL analysis source.
 - `best_episode_trace.csv`: one rollout of the best genome with observations, raw outputs, decoded actions, reward, and termination flags.
+- `best_neuron_trace.csv`: one rollout of the best genome with per-LIF-neuron `input_current`, `membrane_potential`, `spike_output`, and `output_value` for each environment step and SNN substep.
 - `completed`: empty sentinel file after clean completion.
 - Standard EXACT genome artifacts, depending on `--save_genome_option`.
 

@@ -88,6 +88,7 @@ cmake --build build_rl --target snn_rl_mt test_rl_tools_environments rl_tools_pe
 | `--rl_seed_hidden_nodes` | `4` | LIF nodes in the initial seed genome. |
 | `--rl_action_decoder` | Environment default | `discrete_argmax` or `continuous_tanh`. |
 | `--rl_observation_clip` | `10.0` | Clips observations before repeated current injection. |
+| `--rl_write_neuron_trace` | `true` | Writes `best_neuron_trace.csv` for the final best genome. |
 | `--rl_local_search` | `none` | Optional per-genome weight local search: `none`, `perturb`, or `spsa`. |
 | `--rl_local_search_iterations` | `0` | Local-search update attempts per generated genome. |
 | `--rl_local_search_step` | `0.05` | SPSA update step size. |
@@ -121,6 +122,7 @@ Each run writes:
 - `rl_fitness_log.csv`: the official RL log for reward, translated fitness, environment, decoder, genome size, LIF counts, recurrent counts, evaluation time, and local-search statistics.
 - `fitness_log.csv`: EXAMM compatibility log. It is still emitted by the core evolution loop, but do not use it as the RL analysis source.
 - `best_episode_trace.csv`: one rollout of the best genome with observations, raw policy outputs, decoded actions, reward, and termination.
+- `best_neuron_trace.csv`: one rollout of the best genome with LIF neuron current, membrane potential, spike output, and output value for every SNN substep.
 - Existing EXACT best genome artifacts, depending on `--save_genome_option`.
 
 Generated run directories belong under `test_output/` or another ignored output path. Do not commit `rl_fitness_log.csv`, `fitness_log.csv`, traces, genome snapshots, or thread logs from experiments.

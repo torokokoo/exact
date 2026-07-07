@@ -25,6 +25,7 @@ using std::uniform_real_distribution;
 using std::vector;
 
 #include "gru_node.hxx"
+#include "lif_node.hxx"
 #include "lstm_node.hxx"
 #include "rnn/rnn_genome.hxx"
 #include "rnn_edge.hxx"
@@ -588,6 +589,24 @@ vector<double> RNN::get_predictions(
     // performance critical -- Travis
 
     return result;
+}
+
+void RNN::get_lif_node_traces(int32_t env_step, vector<RNNNodeTraceRow>& trace_rows) const {
+    for (int32_t i = 0; i < (int32_t) nodes.size(); i++) {
+        RNN_Node_Interface* node = nodes[i];
+        if (!node->is_reachable() || node->get_node_type() != LIF_NODE) {
+            continue;
+        }
+
+        const LIF_Node* lif_node = static_cast<const LIF_Node*>(node);
+        for (int32_t time = 0; time < series_length; time++) {
+            trace_rows.push_back(
+                {env_step, time, node->get_innovation_number(), node->get_node_type(), node->get_layer_type(),
+                 node->input_values[time], lif_node->get_membrane_potential(time), lif_node->get_spike_output(time),
+                 node->output_values[time]}
+            );
+        }
+    }
 }
 
 void RNN::write_predictions(

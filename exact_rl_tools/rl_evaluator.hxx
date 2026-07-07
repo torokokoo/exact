@@ -41,7 +41,11 @@ RLEvaluation evaluate_rl_genome(RNN_Genome* genome, const RLEvaluationOptions& o
 std::vector<RLTraceRow> trace_rl_episode(RNN_Genome* genome, const RLEvaluationOptions& options);
 std::vector<double> decode_rl_action(
     RNN* rnn, const std::vector<double>& observation, int32_t number_outputs, const RLEvaluationOptions& options,
-    std::vector<double>* raw_outputs = nullptr
+    std::vector<double>* raw_outputs = nullptr, std::vector<RNNNodeTraceRow>* neuron_trace = nullptr,
+    int32_t env_step = -1
+);
+std::vector<RLTraceRow> trace_rl_episode(
+    RNN_Genome* genome, const RLEvaluationOptions& options, std::vector<RNNNodeTraceRow>* neuron_trace
 );
 
 #endif
