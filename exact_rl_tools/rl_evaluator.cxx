@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <limits>
 
 #include "rnn/generate_nn.hxx"
 #include "rnn/lif_node.hxx"
@@ -112,6 +113,8 @@ RLEvaluation evaluate_rl_genome(RNN_Genome* genome, const RLEvaluationOptions& o
     }
 
     double total_reward = 0.0;
+    double episode_best_reward = -std::numeric_limits<double>::max();
+    double episode_worst_reward = std::numeric_limits<double>::max();
     int32_t total_steps = 0;
 
     for (int32_t episode = 0; episode < options.episodes; episode++) {
@@ -132,12 +135,14 @@ RLEvaluation evaluate_rl_genome(RNN_Genome* genome, const RLEvaluationOptions& o
         }
 
         total_reward += episode_reward;
+        episode_best_reward = std::max(episode_best_reward, episode_reward);
+        episode_worst_reward = std::min(episode_worst_reward, episode_reward);
     }
 
     delete rnn;
     auto end = std::chrono::system_clock::now();
     long eval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    return {total_reward / options.episodes, total_steps, eval_ms};
+    return {total_reward / options.episodes, episode_best_reward, episode_worst_reward, total_steps, eval_ms};
 }
 
 std::vector<RLTraceRow> trace_rl_episode(RNN_Genome* genome, const RLEvaluationOptions& options) {

@@ -26,6 +26,10 @@ struct RLLocalSearchResult {
     RLEvaluation initial_evaluation;
     RLEvaluation final_evaluation;
     int32_t evaluations = 0;
+    double evaluation_reward_sum = 0.0;
+    double best_evaluation_reward = 0.0;
+    double mean_evaluation_reward = 0.0;
+    double worst_evaluation_reward = 0.0;
     long local_search_milliseconds = 0;
     bool improved = false;
 };

@@ -44,10 +44,13 @@ double global_best_reward = -1.0e300;
 
 void write_rl_log_header() {
     rl_log_file.open(output_directory + "/rl_fitness_log.csv");
-    rl_log_file << "evaluated_genomes,generation_id,thread_id,env,decoder,seed,episodes,avg_reward,best_avg_reward,"
-                   "fitness,steps_total,enabled_nodes,enabled_lif_nodes,enabled_edges,enabled_recurrent_edges,"
-                   "evaluation_ms,local_search_method,local_search_iterations,initial_avg_reward,"
-                   "local_search_evaluations,local_search_ms,local_search_improved,inserted\n";
+    rl_log_file
+        << "evaluated_genomes,generation_id,thread_id,env,decoder,seed,episodes,avg_reward,"
+           "episode_best_reward,episode_worst_reward,evaluation_best_reward,evaluation_mean_reward,"
+           "evaluation_worst_reward,best_avg_reward,fitness,steps_total,enabled_nodes,enabled_lif_nodes,enabled_edges,"
+           "enabled_recurrent_edges,"
+           "evaluation_ms,local_search_method,local_search_iterations,initial_avg_reward,"
+           "local_search_evaluations,local_search_ms,local_search_improved,inserted\n";
     rl_log_file.flush();
 }
 
@@ -58,14 +61,17 @@ void write_rl_log_row(
     const RLEvaluation& evaluation = local_search_result.final_evaluation;
     rl_log_file << row << "," << genome->get_generation_id() << "," << thread_id << "," << rl_spec.name << ","
                 << action_decoder_name(rl_options.action_decoder) << "," << rl_options.seed << ","
-                << rl_options.episodes << "," << evaluation.average_reward << "," << global_best_reward << ","
-                << fitness << "," << evaluation.total_steps << "," << genome->get_enabled_node_count() << ","
-                << genome->get_enabled_node_count(LIF_NODE) << "," << genome->get_enabled_edge_count() << ","
-                << genome->get_enabled_recurrent_edge_count() << "," << evaluation.evaluation_milliseconds << ","
-                << rl_local_search_method_name(local_search_options.method) << "," << local_search_options.iterations
-                << "," << local_search_result.initial_evaluation.average_reward << ","
-                << local_search_result.evaluations << "," << local_search_result.local_search_milliseconds << ","
-                << (local_search_result.improved ? 1 : 0) << "," << (inserted ? 1 : 0) << "\n";
+                << rl_options.episodes << "," << evaluation.average_reward << "," << evaluation.episode_best_reward
+                << "," << evaluation.episode_worst_reward << "," << local_search_result.best_evaluation_reward << ","
+                << local_search_result.mean_evaluation_reward << "," << local_search_result.worst_evaluation_reward
+                << "," << global_best_reward << "," << fitness << "," << evaluation.total_steps << ","
+                << genome->get_enabled_node_count() << "," << genome->get_enabled_node_count(LIF_NODE) << ","
+                << genome->get_enabled_edge_count() << "," << genome->get_enabled_recurrent_edge_count() << ","
+                << evaluation.evaluation_milliseconds << "," << rl_local_search_method_name(local_search_options.method)
+                << "," << local_search_options.iterations << ","
+                << local_search_result.initial_evaluation.average_reward << "," << local_search_result.evaluations
+                << "," << local_search_result.local_search_milliseconds << "," << (local_search_result.improved ? 1 : 0)
+                << "," << (inserted ? 1 : 0) << "\n";
     rl_log_file.flush();
 }
 

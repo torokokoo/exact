@@ -20,9 +20,11 @@ struct RLEvaluationOptions {
 };
 
 struct RLEvaluation {
-    double average_reward;
-    int32_t total_steps;
-    long evaluation_milliseconds;
+    double average_reward = 0.0;
+    double episode_best_reward = 0.0;
+    double episode_worst_reward = 0.0;
+    int32_t total_steps = 0;
+    long evaluation_milliseconds = 0;
 };
 
 struct RLTraceRow {

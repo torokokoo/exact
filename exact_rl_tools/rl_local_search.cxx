@@ -56,14 +56,34 @@ static void add_scaled_direction(
     }
 }
 
+static void record_local_search_evaluation(RLLocalSearchResult& result, const RLEvaluation& evaluation) {
+    result.evaluations++;
+    result.evaluation_reward_sum += evaluation.average_reward;
+
+    if (result.evaluations == 1) {
+        result.best_evaluation_reward = evaluation.average_reward;
+        result.worst_evaluation_reward = evaluation.average_reward;
+    } else {
+        result.best_evaluation_reward = std::max(result.best_evaluation_reward, evaluation.average_reward);
+        result.worst_evaluation_reward = std::min(result.worst_evaluation_reward, evaluation.average_reward);
+    }
+
+    result.mean_evaluation_reward = result.evaluation_reward_sum / result.evaluations;
+}
+
+static RLLocalSearchResult initialize_local_search_result(const RLEvaluation& initial_evaluation) {
+    RLLocalSearchResult result;
+    result.initial_evaluation = initial_evaluation;
+    result.final_evaluation = initial_evaluation;
+    record_local_search_evaluation(result, initial_evaluation);
+    return result;
+}
+
 static RLLocalSearchResult run_perturb_search(
     RNN_Genome* genome, const RLEvaluationOptions& evaluation_options, const RLLocalSearchOptions& local_options,
     const vector<double>& initial_parameters, const RLEvaluation& initial_evaluation
 ) {
-    RLLocalSearchResult result;
-    result.initial_evaluation = initial_evaluation;
-    result.final_evaluation = initial_evaluation;
-    result.evaluations = 1;
+    RLLocalSearchResult result = initialize_local_search_result(initial_evaluation);
 
     vector<double> best_parameters = initial_parameters;
     vector<double> candidate_parameters;
@@ -79,7 +99,7 @@ static RLLocalSearchResult run_perturb_search(
 
         RLEvaluation candidate_evaluation =
             evaluate_rl_genome_with_parameters(genome, candidate_parameters, evaluation_options);
-        result.evaluations++;
+        record_local_search_evaluation(result, candidate_evaluation);
 
         if (candidate_evaluation.average_reward > result.final_evaluation.average_reward) {
             best_parameters = candidate_parameters;
@@ -96,10 +116,7 @@ static RLLocalSearchResult run_spsa_search(
     RNN_Genome* genome, const RLEvaluationOptions& evaluation_options, const RLLocalSearchOptions& local_options,
     const vector<double>& initial_parameters, const RLEvaluation& initial_evaluation
 ) {
-    RLLocalSearchResult result;
-    result.initial_evaluation = initial_evaluation;
-    result.final_evaluation = initial_evaluation;
-    result.evaluations = 1;
+    RLLocalSearchResult result = initialize_local_search_result(initial_evaluation);
 
     vector<double> current_parameters = initial_parameters;
     vector<double> delta(current_parameters.size(), 0.0);
@@ -125,7 +142,8 @@ static RLLocalSearchResult run_spsa_search(
         RLEvaluation plus_evaluation = evaluate_rl_genome_with_parameters(genome, plus_parameters, evaluation_options);
         RLEvaluation minus_evaluation =
             evaluate_rl_genome_with_parameters(genome, minus_parameters, evaluation_options);
-        result.evaluations += 2;
+        record_local_search_evaluation(result, plus_evaluation);
+        record_local_search_evaluation(result, minus_evaluation);
 
         double reward_delta = plus_evaluation.average_reward - minus_evaluation.average_reward;
         double scale = local_options.step * reward_delta / (2.0 * local_options.perturbation);
@@ -135,7 +153,7 @@ static RLLocalSearchResult run_spsa_search(
 
         RLEvaluation candidate_evaluation =
             evaluate_rl_genome_with_parameters(genome, candidate_parameters, evaluation_options);
-        result.evaluations++;
+        record_local_search_evaluation(result, candidate_evaluation);
 
         if (candidate_evaluation.average_reward > result.final_evaluation.average_reward) {
             current_parameters = candidate_parameters;
@@ -159,9 +177,7 @@ RLLocalSearchResult run_rl_local_search(
 
     RLLocalSearchResult result;
     if (local_options.method == RLLocalSearchMethod::NONE || local_options.iterations <= 0) {
-        result.initial_evaluation = initial_evaluation;
-        result.final_evaluation = initial_evaluation;
-        result.evaluations = 1;
+        result = initialize_local_search_result(initial_evaluation);
         result.improved = false;
     } else if (local_options.method == RLLocalSearchMethod::PERTURB) {
         result = run_perturb_search(genome, evaluation_options, local_options, initial_parameters, initial_evaluation);
